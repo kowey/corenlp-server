@@ -7,6 +7,9 @@ import java.util.Properties;
 import edu.stanford.nlp.pipeline.Annotation;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import edu.stanford.nlp.util.StringUtils;
+import fr.irit.corenlp.protocol.*;
+import fr.irit.corenlp.protocol.Process;
+import lombok.NonNull;
 import org.zeromq.ZMQ;
 
 /**
@@ -19,6 +22,8 @@ import org.zeromq.ZMQ;
 public class Server extends StanfordCoreNLP {
 
     static final int DEFAULT_PORT = 5900;
+    static private final byte[] PONG = "pong".getBytes();
+    static private final byte[] STOPPING = "stopping".getBytes();
 
     public Server(final Properties props) {
         super(props);
@@ -34,6 +39,33 @@ public class Server extends StanfordCoreNLP {
         return document;
     }
 
+    private static void handleMessage(@NonNull StanfordCoreNLP pipeline,
+                                      @NonNull Connection connection,
+                                      @NonNull final Message message)
+            throws IOException
+    {
+        if (message instanceof Ping) {
+            connection.reply(PONG);
+        } else if (message instanceof Stop) {
+            connection.reply(STOPPING);
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {}
+            connection.stop();
+        } else if (message instanceof Process) {
+            // parse incoming string
+            final String incoming = ((Process) message).getText();
+            final Annotation document = annotate(pipeline, incoming);
+            final ByteArrayOutputStream ostream = new ByteArrayOutputStream();
+            pipeline.xmlPrint(document, ostream);
+            connection.reply(ostream.toByteArray());
+        } else {
+            // unreachable if we had a proper language with ADTs
+            throw new RuntimeException("Unknown message: " + message);
+        }
+    }
+
+
     private static void runServer(final Properties props,
                                   final int port) throws IOException {
         StanfordCoreNLP pipeline = new Server(props);
@@ -43,19 +75,14 @@ public class Server extends StanfordCoreNLP {
         //  Socket to talk to clients
         ZMQ.Socket responder = context.socket(ZMQ.REP);
         responder.bind("tcp://*:" + port);
+        final Connection connection = new Connection(context, responder);
 
-        while (!Thread.currentThread().isInterrupted()) {
+        while (!(Thread.currentThread().isInterrupted()
+                || connection.isStopRequested())) {
             // Wait for next request from the client
             byte[] request = responder.recv(0);
-
-            // parse incoming string
-            Annotation document = annotate(pipeline, new String(request));
-            ByteArrayOutputStream ostream = new ByteArrayOutputStream();
-            pipeline.xmlPrint(document, ostream);
-
-            // Send reply back to client
-            byte[] reply = ostream.toByteArray();
-            responder.send(reply, 0);
+            final Message message = Message.fromString(new String(request));
+            handleMessage(pipeline, connection, message);
         }
         responder.close();
         context.term();
