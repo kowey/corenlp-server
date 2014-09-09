@@ -18,5 +18,45 @@ server in a supported protocol (for now, we've fairly arbitrarily chosen
 [ZeroMQ][zeromq] as a hopefully simple starting point); and to parse the
 Stanford CoreNLP XML.
 
+## Getting started
+
+This package uses Maven for as its build/dependency system.
+
+    mvn package
+
+For now the simplest way to run the server is to open it in
+intellij and run fr.irit.corenlp.zeromq.Server
+
+## Protocol
+
+Note that there is a simple communication protocol between server and
+client (on top of what lower-level protocol or layer you may be using).
+
+For now it consists of one word command followed by optional single
+space and payload.
+
+Commands:
+* stop
+* ping
+* process SP text...
+
+If the server becomes more complicated than this, we may need to switch
+to some sort more formal language
+
+### Ping
+
+The response will just be the word "pong"
+
+### Process
+
+The response will be CoreNLP XML
+
+## License (GPL v2+)
+
+I'm happy for this to public domain in principle; however, I think I
+use snippets of corenlp in places so we'll likely have to go with
+GPL v2 or later.
+
+
 [corenlp]: http://nlp.stanford.edu/software/index.shtml
 [zeromq]: http://zeromq.org
