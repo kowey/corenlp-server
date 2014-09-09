@@ -24,8 +24,21 @@ This package uses Maven for as its build/dependency system.
 
     mvn package
 
-For now the simplest way to run the server is to open it in
-intellij and run fr.irit.corenlp.zeromq.Server
+To run the server and its example client through maven
+
+    mvn exec:java -D server
+    mvn exec:java -D client\
+        -Dexec.args="ping 'process why hello there' ping stop'"
+
+Otherwise you're on your own for working out the combination of jars
+(stanford corenlp, jeromq, this server).
+
+Note also the Python example client:
+
+    cd src/main/python
+    pip install pyzmq
+    python client.py 'process it may work in Python too'
+
 
 ## Protocol
 
